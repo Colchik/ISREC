@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Guna.UI2.WinForms;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -17,14 +18,16 @@ namespace ISREC
             InitializeComponent();
         }
 
+
+
         private void gunaButtonClose_Click(object sender, EventArgs e)
         {
-
+            this.Close();
         }
 
-        private void guna2Button1_Click(object sender, EventArgs e)
+        private void guna2ButtonCollapse_Click(object sender, EventArgs e)
         {
-
+            this.WindowState = FormWindowState.Minimized;
         }
     }
 }
