@@ -68,6 +68,8 @@
             this.guna2TextBox2 = new Guna.UI2.WinForms.Guna2TextBox();
             this.guna2ButtonReset = new Guna.UI2.WinForms.Guna2Button();
             this.guna2ComboBoxLocation = new Guna.UI2.WinForms.Guna2ComboBox();
+            this.label3 = new System.Windows.Forms.Label();
+            this.label4 = new System.Windows.Forms.Label();
             this.panelUp.SuspendLayout();
             this.panelMenu.SuspendLayout();
             this.guna2PanelRealEstateManagement.SuspendLayout();
@@ -665,7 +667,7 @@
             this.guna2ButtonReset.DisabledState.FillColor = System.Drawing.Color.FromArgb(((int)(((byte)(169)))), ((int)(((byte)(169)))), ((int)(((byte)(169)))));
             this.guna2ButtonReset.DisabledState.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(141)))), ((int)(((byte)(141)))), ((int)(((byte)(141)))));
             this.guna2ButtonReset.FillColor = System.Drawing.Color.Transparent;
-            this.guna2ButtonReset.Font = new System.Drawing.Font("Century Gothic", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.guna2ButtonReset.Font = new System.Drawing.Font("Century Gothic", 8.25F);
             this.guna2ButtonReset.ForeColor = System.Drawing.Color.Black;
             this.guna2ButtonReset.Location = new System.Drawing.Point(706, 194);
             this.guna2ButtonReset.Name = "guna2ButtonReset";
@@ -696,18 +698,44 @@
             this.guna2ComboBoxLocation.TabIndex = 6;
             this.guna2ComboBoxLocation.SelectedIndexChanged += new System.EventHandler(this.guna2ComboBoxLocation_SelectedIndexChanged);
             // 
+            // label3
+            // 
+            this.label3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.label3.AutoSize = true;
+            this.label3.Font = new System.Drawing.Font("Century Gothic", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.label3.ForeColor = System.Drawing.Color.Black;
+            this.label3.Location = new System.Drawing.Point(469, 228);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(15, 17);
+            this.label3.TabIndex = 24;
+            this.label3.Text = "₽";
+            // 
+            // label4
+            // 
+            this.label4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.label4.AutoSize = true;
+            this.label4.Font = new System.Drawing.Font("Century Gothic", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.label4.ForeColor = System.Drawing.Color.Black;
+            this.label4.Location = new System.Drawing.Point(768, 227);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(15, 17);
+            this.label4.TabIndex = 25;
+            this.label4.Text = "₽";
+            // 
             // FormMenu
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(798, 592);
+            this.Controls.Add(this.label4);
+            this.Controls.Add(this.label3);
+            this.Controls.Add(this.label1);
             this.Controls.Add(this.guna2ButtonReset);
             this.Controls.Add(this.guna2TextBox2);
             this.Controls.Add(this.guna2TextBox1);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.guna2TrackBar2);
-            this.Controls.Add(this.label1);
             this.Controls.Add(this.guna2TrackBar1);
             this.Controls.Add(this.guna2PanelNumberSuccessful);
             this.Controls.Add(this.guna2PanelClientFeedback);
@@ -786,6 +814,8 @@
         private Guna.UI2.WinForms.Guna2TextBox guna2TextBox2;
         private Guna.UI2.WinForms.Guna2Button guna2ButtonReset;
         private Guna.UI2.WinForms.Guna2ComboBox guna2ComboBoxLocation;
+        private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.Label label4;
     }
 }
 
