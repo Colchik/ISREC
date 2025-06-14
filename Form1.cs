@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.SqlClient;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -15,22 +16,56 @@ namespace ISREC
 {
     public partial class FormMenu : Form
     {
-        public FormMenu()
-        {
-            InitializeComponent();
-            guna2ComboBoxSubcategoryPropertyType.Visible = false;
-            guna2TrackBarPrice_1.Maximum = MaxPriceForTrackBars; guna2TrackBarPrice_1.SmallChange = SmallChangeForTrackBars;
-            guna2TrackBarPrice_2.Maximum = MaxPriceForTrackBars; guna2TrackBarPrice_2.SmallChange = SmallChangeForTrackBars;
-            //guna2PanePage1.Visible = false;
-            guna2PanelPage2.Visible = false;
-        }
+
+        private const int MAX_PRICE_FOR_TRACKBARS = 1000000;
+        private const int SMALL_CHANGE_FOR_TRACKBARS = 100000;
+        private const string CONNECTION_STRING = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=|DataDirectory|\DBISREC.mdf;Integrated Security=True";
 
         private bool _dragging = false;
         private Point _startPoint = new Point(0, 0);
-        Func<int, int> roundValue = value => (value / 10000) * 10000; // округление
-        Func<string, int, int> parseOrDefault = (input, defaultValue) =>
+        private string subCategoryType = "";
+        private string subCategoryType1 = "";
+        private string selectedImagePath;
+
+        private readonly Func<int, int> roundValue = value => (value / 10000) * 10000;
+        private readonly Func<string, int, int> parseOrDefault = (input, defaultValue) =>
             int.TryParse(input.Replace(" ", ""), out int val) ? val : defaultValue;
-        private int MaxPriceForTrackBars = 5000000; private int SmallChangeForTrackBars = 100000; // настройки длря трек бара
+
+        public FormMenu()
+        {
+            InitializeComponent();
+            InitializeControls();
+        }
+
+        private void InitializeControls()
+        {
+            guna2ComboBoxSubcategoryPropertyType.Visible = false;
+            guna2PanelPage2.Visible = false;
+
+            guna2TrackBarPrice_1.Maximum = MAX_PRICE_FOR_TRACKBARS;
+            guna2TrackBarPrice_1.SmallChange = SMALL_CHANGE_FOR_TRACKBARS;
+            guna2TrackBarPrice_2.Maximum = MAX_PRICE_FOR_TRACKBARS;
+            guna2TrackBarPrice_2.SmallChange = SMALL_CHANGE_FOR_TRACKBARS;
+        }
+
+        public class CustomFlowLayoutPanel : FlowLayoutPanel
+        {
+            public CustomFlowLayoutPanel()
+            {
+                this.DoubleBuffered = true;
+            }
+        }
+
+        public class Property
+        {
+            public int Id { get; set; }
+            public string Heading { get; set; }
+            public decimal Price { get; set; }
+            public int Area { get; set; }
+            public string Place { get; set; }
+            public byte[] Image { get; set; }
+            public string Type { get; set; }
+        }
 
         private void guna2PanelUp_MouseDown(object sender, MouseEventArgs e)
         {
@@ -62,64 +97,18 @@ namespace ISREC
             this.WindowState = FormWindowState.Minimized;
         }
 
+
         private void guna2ComboBoxPropertyType_SelectedIndexChanged(object sender, EventArgs e)
         {
-            guna2ComboBoxSubcategoryPropertyType.Items.Clear();
-            guna2ComboBoxSubcategoryPropertyType.Visible = false;
-            labelTypeProperty.Text = "Тип недвижимости:";
-
             if (guna2ComboBoxPropertyType.SelectedItem == null) return;
+
+            guna2ComboBoxSubcategoryPropertyType.Items.Clear();
+            guna2ComboBoxSubcategoryPropertyType.Visible = true;
 
             string selectedCategory = guna2ComboBoxPropertyType.SelectedItem.ToString();
             labelTypeProperty.Text = $"{selectedCategory}: ";
 
-            switch (selectedCategory)
-            {
-                case "Жилая":
-                    guna2ComboBoxSubcategoryPropertyType.Items.AddRange(new object[] {
-                "Квартира",
-                "Частный дом",
-                "Апартаменты"
-            });
-                    guna2ComboBoxSubcategoryPropertyType.Visible = true;
-                    break;
-
-                case "Коммерческая":
-                    guna2ComboBoxSubcategoryPropertyType.Items.AddRange(new object[] {
-                "Офисные помещения",
-                "Торговая недвижимость",
-                "Склады"
-            });
-                    guna2ComboBoxSubcategoryPropertyType.Visible = true;
-                    break;
-
-                case "Земельные участки":
-                    guna2ComboBoxSubcategoryPropertyType.Items.AddRange(new object[] {
-                "Для жилой застройки",
-                "Для коммерции",
-                "Сельхоз земли"
-            });
-                    guna2ComboBoxSubcategoryPropertyType.Visible = true;
-                    break;
-
-                case "Специальные":
-                    guna2ComboBoxSubcategoryPropertyType.Items.AddRange(new object[] {
-                "Гаражи и парковки",
-                "Промышленные объекты",
-                "Социальные объекты"
-            });
-                    guna2ComboBoxSubcategoryPropertyType.Visible = true;
-                    break;
-
-                case "Другие":
-                    guna2ComboBoxSubcategoryPropertyType.Items.AddRange(new object[] {
-                "Короткая аренда",
-                "Инвестиционные объекты",
-                "Доли и совместная собственность"
-            });
-                    guna2ComboBoxSubcategoryPropertyType.Visible = true;
-                    break;
-            }
+            PopulateSubcategories(selectedCategory, guna2ComboBoxSubcategoryPropertyType);
             guna2ComboBoxSubcategoryPropertyType.DroppedDown = true;
         }
 
@@ -128,54 +117,68 @@ namespace ISREC
             if (guna2ComboBoxSubcategoryPropertyType.SelectedItem == null) return;
 
             string mainCategory = guna2ComboBoxPropertyType.SelectedItem.ToString();
-            string subCategory = guna2ComboBoxSubcategoryPropertyType.SelectedItem.ToString();
+            subCategoryType = guna2ComboBoxSubcategoryPropertyType.SelectedItem.ToString();
 
-            labelTypeProperty.Text = $"{mainCategory}: {subCategory}";
+            labelTypeProperty.Text = $"{mainCategory}: {subCategoryType}";
             guna2ComboBoxSubcategoryPropertyType.Visible = false;
+        }
+
+        private void guna2ComboBoxCategory_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (guna2ComboBoxCategory.SelectedItem == null) return;
+
+            guna2ComboBoxSubCategory.Items.Clear();
+            guna2ComboBoxSubCategory.Visible = true;
+
+            string selectedCategory = guna2ComboBoxCategory.SelectedItem.ToString();
+            labelTP.Text = $"{selectedCategory}: ";
+
+            PopulateSubcategories(selectedCategory, guna2ComboBoxSubCategory);
+            guna2ComboBoxSubCategory.DroppedDown = true;
+        }
+
+        private void guna2ComboBoxSubCategory_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (guna2ComboBoxSubCategory.SelectedItem == null) return;
+
+            string mainCategory = guna2ComboBoxCategory.SelectedItem.ToString();
+            subCategoryType1 = guna2ComboBoxSubCategory.SelectedItem.ToString();
+
+            labelTP.Text = $"{mainCategory}: {subCategoryType1}";
+            guna2ComboBoxSubCategory.Visible = false;
         }
 
         private void guna2ComboBoxLocation_SelectedIndexChanged(object sender, EventArgs e)
         {
-            guna2ComboBoxSubcategoryPropertyType.Items.Clear();
-            guna2ComboBoxSubcategoryPropertyType.Visible = false;
-            string location = "Расположение";
-            labelLocation.Text = location;
-
-            if (guna2ComboBoxLocation.SelectedItem == null) return;
-
-            string selectedCategory = guna2ComboBoxLocation.SelectedItem.ToString();
-
-            switch (selectedCategory)
-            {
-                case "Москва":
-                    labelLocation.Text = $"{location}: Москва";
-                    break;
-                case "Московская область":
-                    labelLocation.Text = $"{location}: Московская область";
-                    break;
-                case "Санкт-Петербург":
-                    labelLocation.Text = $"{location}: Санкт-Петербург";
-                    break;
-
-            }
+            UpdateLocationLabel(guna2ComboBoxLocation, labelLocation);
         }
 
-        private void guna2ButtonReset_Click(object sender, EventArgs e)
+        private void guna2ComboBoxPlace_SelectedIndexChanged(object sender, EventArgs e)
         {
-            guna2ComboBoxPropertyType.SelectedIndex = -1;
-            guna2ComboBoxSubcategoryPropertyType.Items.Clear();
-            guna2ComboBoxSubcategoryPropertyType.Visible = false;
-            guna2ComboBoxLocation.SelectedIndex = -1;
+            UpdateLocationLabel(guna2ComboBoxPlace, labelLC);
+        }
+
+        private void UpdateLocationLabel(Guna.UI2.WinForms.Guna2ComboBox comboBox, Label label)
+        {
+            string location = "Расположение";
+            label.Text = location;
+
+            if (comboBox.SelectedItem == null) return;
+
+            string selectedLocation = comboBox.SelectedItem.ToString();
+            label.Text = $"{location}: {selectedLocation}";
         }
 
         private void guna2TrackBarPrice_1_Scroll(object sender, ScrollEventArgs e)
         {
-            int roundedPrice = roundValue(guna2TrackBarPrice_1.Value); guna2TextBoxPrice_1.Text = roundedPrice.ToString();
+            int roundedPrice = roundValue(guna2TrackBarPrice_1.Value);
+            guna2TextBoxPrice_1.Text = roundedPrice.ToString("N0");
         }
 
         private void guna2TrackBarPrice_2_Scroll(object sender, ScrollEventArgs e)
         {
-            int roundedPrice = roundValue(guna2TrackBarPrice_2.Value); guna2TextBoxPrice_2.Text = roundedPrice.ToString();
+            int roundedPrice = roundValue(guna2TrackBarPrice_2.Value);
+            guna2TextBoxPrice_2.Text = roundedPrice.ToString("N0");
         }
 
         private void guna2TextBoxPrice_1_TextChanged(object sender, EventArgs e)
@@ -190,128 +193,469 @@ namespace ISREC
 
         private void guna2ButtonClients_Click(object sender, EventArgs e)
         {
-            if (guna2PanelPage2.Visible == true) return; // если кнопка нажата то заново не перерисовываем
+            if (guna2PanelPage2.Visible) return;
 
-            guna2PanelPage2.Visible = true;
-            guna2PanelPage1.Visible = false;
-            flowLayoutPanelCards.Controls.Clear();
-
-            List<Property> properties = GetRandomProperties(15); // кол во карточек
-
-            foreach (var property in properties)
-            {
-                Guna2Panel card = CreatePropertyCard(property);
-                flowLayoutPanelCards.Controls.Add(card);
-            }
+            ShowPropertiesPage();
+            LoadProperties(25);
         }
 
-        public class Property
+        private void guna2Button_Search_1_Click(object sender, EventArgs e)
         {
-            public int Id { get; set; }
-            public string Heading { get; set; }
-            public decimal Price { get; set; }
-            public string Area { get; set; }
+            ShowSearchPage();
+        }
+
+        private void guna2ButtonCreates_Click(object sender, EventArgs e)
+        {
+            HideAllPages();
+        }
+
+        private void gunaButtonSearch_2_Click(object sender, EventArgs e)
+        {
+            PerformSearch();
+        }
+
+        private void guna2ButtonChoose_Click(object sender, EventArgs e)
+        {
+            SelectImage();
+        }
+
+        private void guna2ButtonCreate_Click(object sender, EventArgs e)
+        {
+            CreateProperty();
         }
 
         private List<Property> GetRandomProperties(int count, string propertyType = null)
         {
-            List<Property> properties = new List<Property>();
-            string connectionString  = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=|DataDirectory|\DBISREC.mdf;Integrated Security=True";
+            var properties = new List<Property>();
 
-            using (SqlConnection connection = new SqlConnection(connectionString))
+            using (var connection = new SqlConnection(CONNECTION_STRING))
             {
                 try
                 {
                     connection.Open();
-                    string query = propertyType == null
-                        ? $"SELECT TOP {count} * FROM [Table] ORDER BY NEWID()"
-                        : $"SELECT TOP {count} * FROM [Table] WHERE Type = @Type ORDER BY NEWID()"; // рандом выборка
-                    using (SqlCommand command = new SqlCommand(query, connection))
+                    string query = BuildPropertyQuery(count, propertyType);
+
+                    using (var command = new SqlCommand(query, connection))
                     {
                         if (propertyType != null)
                             command.Parameters.AddWithValue("@Type", propertyType);
-                        using (SqlDataReader reader = command.ExecuteReader())
+
+                        using (var reader = command.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                properties.Add(new Property
-                                {
-                                    Id = reader.GetInt32(0),
-                                    Heading = reader.GetString(1),
-                                    Price = reader.GetDecimal(2),
-                                    Area = reader.GetString(3)
-                                });
+                                properties.Add(ReadProperty(reader));
                             }
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Ошибка: {ex.Message}\nStackTrace: {ex.StackTrace}");
+                    MessageBox.Show($"Ошибка: {ex.Message}");
                 }
             }
             return properties;
         }
 
+        private string BuildPropertyQuery(int count, string propertyType)
+        {
+            return propertyType == null
+                ? $"SELECT TOP {count} * FROM [Table] ORDER BY NEWID()"
+                : $"SELECT TOP {count} * FROM [Table] WHERE Type = @Type ORDER BY NEWID()";
+        }
+
+        private Property ReadProperty(SqlDataReader reader)
+        {
+            return new Property
+            {
+                Id = reader.GetInt32(0),
+                Heading = reader.GetString(1),
+                Price = reader.GetDecimal(2),
+                Area = reader.GetInt32(3),
+                Place = reader.GetString(6),
+                Image = reader[7] as byte[],
+                Type = reader.GetString(4)
+            };
+        }
+
+        private void ShowPropertiesPage()
+        {
+            guna2PanelPage2.Visible = true;
+            guna2PanelPage1.Visible = false;
+            flowLayoutPanelCards.Controls.Clear();
+        }
+
+        private void ShowSearchPage()
+        {
+            guna2PanelPage1.Visible = true;
+            guna2PanelPage2.Visible = false;
+        }
+
+        private void HideAllPages()
+        {
+            guna2PanelPage1.Visible = false;
+            guna2PanelPage2.Visible = false;
+        }
+
+        private void LoadProperties(int count)
+        {
+            var properties = GetRandomProperties(count);
+            DisplayProperties(properties);
+        }
+
+        private void DisplayProperties(List<Property> properties)
+        {
+            foreach (var property in properties)
+            {
+                var card = CreatePropertyCard(property);
+                flowLayoutPanelCards.Controls.Add(card);
+            }
+        }
+
         private Guna2Panel CreatePropertyCard(Property property)
         {
-            Guna2Panel card = new Guna2Panel
+            var card = new Guna2Panel
             {
-                Size = new Size(278, 128),
+                Size = new Size(300, 148),
                 BorderRadius = 4,
                 FillColor = Color.White,
                 BorderColor = Color.Gray,
                 BorderThickness = 1,
-                Margin = new Padding(5)
+                Margin = new Padding(17)
             };
 
-            Guna2HtmlLabel lblHeading = new Guna2HtmlLabel
+            AddCardControls(card, property);
+            return card;
+        }
+
+        private void AddCardControls(Guna2Panel card, Property property)
+        {
+            // Заголовок
+            card.Controls.Add(new Guna2HtmlLabel
             {
                 Text = property.Heading,
                 Location = new Point(10, 10),
-                Font = new Font("Century Gothic", 10, FontStyle.Bold),
+                Font = new Font("Century Gothic", 12, FontStyle.Bold),
                 AutoSize = true
-            };
-            card.Controls.Add(lblHeading);
+            });
 
-            Guna2HtmlLabel lblArea = new Guna2HtmlLabel
+            // Площадь
+            card.Controls.Add(new Guna2HtmlLabel
             {
-                Text = $"Площадь {property.Area}",
+                Text = $"Площадь {property.Area} м²",
                 Location = new Point(10, 35),
                 Font = new Font("Century Gothic", 9),
                 AutoSize = true
-            };
-            card.Controls.Add(lblArea);
+            });
 
-            Guna2HtmlLabel lblPrice = new Guna2HtmlLabel
+            // Место
+            card.Controls.Add(new Guna2HtmlLabel
             {
-                Text = $"{property.Price:N0} Р в мес.",
+                Text = property.Place,
+                Location = new Point(card.Size.Width - 155, card.Size.Height - 20),
+                Font = new Font("Century Gothic", 8, FontStyle.Bold),
+                AutoSize = false,
+                Size = new Size(150, 20),
+                TextAlignment = ContentAlignment.TopRight
+            });
+
+            // Цена
+            card.Controls.Add(new Guna2HtmlLabel
+            {
+                Text = $"{property.Price:N0} Р в мес",
                 Location = new Point(10, 60),
-                Font = new Font("Century Gothic", 10, FontStyle.Bold),
-                ForeColor = Color.Green,
+                Font = new Font("Century Gothic", 11, FontStyle.Bold),
                 AutoSize = true
-            };
-            card.Controls.Add(lblPrice);
+            });
 
-            Guna2Button btnChat = new Guna2Button
+            // Изображение
+            card.Controls.Add(new Guna2PictureBox
             {
-                Text = "Написать в чат",
+                Image = ByteArrayToImage(property.Image),
+                Size = new Size(130, 100),
+                Location = new Point(150, 35),
+                BorderRadius = 4,
+                SizeMode = PictureBoxSizeMode.StretchImage
+            });
+
+            // Кнопка типо чата
+            var btnChat = new Guna2Button
+            {
+                Text = "Связаться",
                 Size = new Size(120, 30),
-                Location = new Point(10, 85),
+                Location = new Point(10, 110),
                 FillColor = Color.FromArgb(65, 88, 112),
                 ForeColor = Color.White,
                 BorderRadius = 4
             };
-            btnChat.Click += (s, e) => MessageBox.Show($"Открыт чат для ID {property.Id}");
+            btnChat.Click += (s, e) => MessageBox.Show($"ID {property.Id}");
             card.Controls.Add(btnChat);
-
-            return card;
         }
 
-        private void guna2Button_Search_1_Click(object sender, EventArgs e)
+        private void PopulateSubcategories(string category, Guna.UI2.WinForms.Guna2ComboBox comboBox)
         {
-            guna2PanelPage1.Visible = true;
-            guna2PanelPage2.Visible = false;
+            var subcategories = GetSubcategoriesForCategory(category);
+            if (subcategories != null)
+            {
+                comboBox.Items.AddRange(subcategories);
+                comboBox.Visible = true;
+            }
+        }
+
+        private object[] GetSubcategoriesForCategory(string category)
+        {
+            switch (category)
+            {
+                case "Жилая":
+                    return new object[] { "Квартира", "Частный дом", "Апартаменты" };
+                case "Коммерческая":
+                    return new object[] { "Офисные помещения", "Торговая недвижимость", "Склады" };
+                case "Земельные участки":
+                    return new object[] { "Для жилой застройки", "Для коммерции", "Сельхоз земли" };
+                case "Специальные":
+                    return new object[] { "Гаражи и парковки", "Промышленные объекты", "Социальные объекты" };
+                case "Другие":
+                    return new object[] { "Короткая аренда", "Инвестиционные объекты", "Доли и совместная собственность" };
+                default:
+                    return null;
+            }
+        }
+
+        private Image ByteArrayToImage(byte[] byteArray)
+        {
+            if (byteArray == null || byteArray.Length == 0) return null;
+
+            using (var ms = new MemoryStream(byteArray))
+            {
+                return Image.FromStream(ms);
+            }
+        }
+
+        private void PerformSearch()
+        {
+            string place = guna2ComboBoxLocation.Text;
+            string price_1 = guna2TextBoxPrice_1.Text;
+            string price_2 = guna2TextBoxPrice_2.Text;
+
+            if (!ValidateSearchCriteria(place))
+                return;
+
+            ShowPropertiesPage();
+
+            var properties = GetFilteredProperties(place, price_1, price_2);
+
+            if (properties.Count == 0)
+            {
+                MessageBox.Show("По вашему запросу ничего не найдено", "Результаты поиска",
+                              MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            DisplayProperties(properties);
+        }
+
+        private bool ValidateSearchCriteria(string place)
+        {
+            if (string.IsNullOrWhiteSpace(subCategoryType) || string.IsNullOrWhiteSpace(place))
+            {
+                return false;
+            }
+            return true;
+        }
+
+        private List<Property> GetFilteredProperties(string place, string price_1, string price_2)
+        {
+            var properties = GetRandomProperties(25);
+
+            // Фильтрация по месту и типу
+            properties = properties.Where(p => p.Place.Contains(place)).ToList();
+            properties = properties.Where(p => p.Type.Contains(subCategoryType)).ToList();
+
+            // Фильтрация по цене
+            if (!string.IsNullOrWhiteSpace(price_1) || !string.IsNullOrWhiteSpace(price_2))
+            {
+                properties = FilterByPrice(properties, price_1, price_2);
+            }
+
+            return properties;
+        }
+
+        private List<Property> FilterByPrice(List<Property> properties, string minPriceStr, string maxPriceStr)
+        {
+            decimal minPrice = 0;
+            decimal maxPrice = decimal.MaxValue;
+
+            if (!string.IsNullOrWhiteSpace(minPriceStr))
+            {
+                if (!decimal.TryParse(minPriceStr, out minPrice))
+                {
+                    MessageBox.Show("Неверный формат минимальной цены", "Ошибка",
+                                  MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return new List<Property>();
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(maxPriceStr))
+            {
+                if (!decimal.TryParse(maxPriceStr, out maxPrice))
+                {
+                    MessageBox.Show("Неверный формат максимальной цены", "Ошибка",
+                                  MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return new List<Property>();
+                }
+            }
+
+            if (minPrice > maxPrice)
+            {
+                MessageBox.Show("Минимальная цена не может быть больше максимальной", "Ошибка",
+                              MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return new List<Property>();
+            }
+
+            return properties.Where(p => p.Price >= minPrice && p.Price <= maxPrice).ToList();
+        }
+
+        private void SelectImage()
+        {
+            using (var openFileDialog = new OpenFileDialog())
+            {
+                openFileDialog.Title = "Выберите изображение";
+                openFileDialog.Filter = "Файлы изображений|*.jpg;*.jpeg;*.png;*.gif;*.bmp|Все файлы|*.*";
+                openFileDialog.FilterIndex = 1;
+                openFileDialog.RestoreDirectory = true;
+
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        selectedImagePath = openFileDialog.FileName;
+                        guna2PictureBox5.Image = Image.FromFile(openFileDialog.FileName);
+                        guna2PictureBox5.SizeMode = PictureBoxSizeMode.Zoom;
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка при загрузке изображения: {ex.Message}",
+                                      "Ошибка",
+                                      MessageBoxButtons.OK,
+                                      MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
+        private void CreateProperty()
+        {
+            if (!ValidatePropertyFields())
+            {
+                MessageBox.Show("Нужно заполнить все поля!", "Предупреждение",
+                               MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            byte[] imageBytes = GetImageBytes();
+            if (imageBytes == null && !string.IsNullOrEmpty(selectedImagePath))
+            {
+                return;
+            }
+
+            SavePropertyToDatabase(imageBytes);
+        }
+
+        private bool ValidatePropertyFields()
+        {
+            string place = guna2ComboBoxPlace.Text;
+
+            return !string.IsNullOrWhiteSpace(guna2TextBoxCreateName.Text) &&
+                   !string.IsNullOrWhiteSpace(guna2TextBoxCreatePrice.Text) &&
+                   !string.IsNullOrWhiteSpace(guna2TextBoxCreateArea.Text) &&
+                   !string.IsNullOrWhiteSpace(subCategoryType1) &&
+                   !string.IsNullOrWhiteSpace(place);
+        }
+
+        private byte[] GetImageBytes()
+        {
+            if (string.IsNullOrEmpty(selectedImagePath))
+                return null;
+
+            try
+            {
+                return File.ReadAllBytes(selectedImagePath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при чтении изображения: {ex.Message}",
+                              "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return null;
+            }
+        }
+
+        private void SavePropertyToDatabase(byte[] imageBytes)
+        {
+            using (var connection = new SqlConnection(CONNECTION_STRING))
+            {
+                try
+                {
+                    connection.Open();
+
+                    string query = @"INSERT INTO [Table] (Heading, Price, Area, Type, Place, Image) 
+                                   VALUES (@Heading, @Price, @Area, @Type, @Place, @Image)";
+
+                    using (var command = new SqlCommand(query, connection))
+                    {
+                        AddPropertyParameters(command, imageBytes);
+
+                        int rowsAffected = command.ExecuteNonQuery();
+
+                        if (rowsAffected > 0)
+                        {
+                            MessageBox.Show("Данные успешно сохранены", "Успех",
+                                          MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            ClearFields();
+                        }
+                    }
+                }
+                catch (FormatException)
+                {
+                    MessageBox.Show("Неправильный формат",
+                                  "Ошибка формата", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                catch (SqlException ex)
+                {
+                    MessageBox.Show($"Ошибка базы данных: {ex.Message}",
+                                  "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка: {ex.Message}",
+                                  "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void AddPropertyParameters(SqlCommand command, byte[] imageBytes)
+        {
+            string place = guna2ComboBoxPlace.Text;
+
+            command.Parameters.AddWithValue("@Heading", guna2TextBoxCreateName.Text);
+            command.Parameters.AddWithValue("@Price", Convert.ToDecimal(guna2TextBoxCreatePrice.Text));
+            command.Parameters.AddWithValue("@Area", Convert.ToInt32(guna2TextBoxCreateArea.Text));
+            command.Parameters.AddWithValue("@Type", subCategoryType1);
+            command.Parameters.AddWithValue("@Place", place);
+
+            if (imageBytes != null)
+                command.Parameters.AddWithValue("@Image", imageBytes);
+            else
+                command.Parameters.AddWithValue("@Image", DBNull.Value);
+        }
+
+        private void ClearFields()
+        {
+            guna2TextBoxCreateName.Clear();
+            guna2TextBoxCreatePrice.Clear();
+            guna2TextBoxCreateArea.Clear();
+            guna2ComboBoxPlace.SelectedIndex = -1;
+            guna2PictureBox5.Image = null;
+            selectedImagePath = null;
         }
     }
 }
